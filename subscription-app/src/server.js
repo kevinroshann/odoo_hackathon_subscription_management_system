@@ -15,7 +15,7 @@ const db = getDatabase();
 
 // Check if database needs seeding
 const productCount = db.prepare('SELECT COUNT(*) as cnt FROM products').get().cnt;
-if (productCount === 0) {
+if (productCount === 0 && process.env.SKIP_SEED !== 'true') {
   console.log('Database empty, running initial seed...');
   seedDatabase(db);
 }

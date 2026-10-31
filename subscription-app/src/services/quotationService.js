@@ -1,10 +1,13 @@
 class QuotationService {
-  constructor(db, { productService, planService, discountService, templateService }) {
+  constructor(db, { productService, planService, discountService, templateService, onStatusChange = null } = {}) {
     this.db = db;
     this.productService = productService;
     this.planService = planService;
     this.discountService = discountService;
     this.templateService = templateService;
+    // Member 3 can pass a hook to sync an Active quotation into the billing
+    // subscriptions table. Failures never break the quotation transition.
+    this.onStatusChange = typeof onStatusChange === 'function' ? onStatusChange : null;
   }
 
   generateQuoteNumber() {
@@ -359,7 +362,22 @@ class QuotationService {
     `);
     stmt.run(newStatus, id);
 
-    return this.getQuotationById(id);
+    const updated = this.getQuotationById(id);
+
+    if (this.onStatusChange && quote.status !== newStatus) {
+      try {
+        const hookResult = this.onStatusChange(updated, quote.status);
+        if (hookResult && typeof hookResult.catch === 'function') {
+          hookResult.catch((err) => {
+            console.error(`[quotationService] onStatusChange failed: ${err.message}`);
+          });
+        }
+      } catch (err) {
+        console.error(`[quotationService] onStatusChange failed: ${err.message}`);
+      }
+    }
+
+    return updated;
   }
 
   deleteQuotation(id) {

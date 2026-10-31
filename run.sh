@@ -99,16 +99,20 @@ wait_for_http() {
 
 trap stop_apps INT TERM EXIT
 
-echo "Starting subscription app at http://localhost:$MAIN_PORT"
-PORT="$MAIN_PORT" node "$ROOT_DIR/subscription-app/src/server.js" &
-main_pid=$!
-
+# Start the auth/billing app first: it creates the shared schema and seeds the
+# Member 2 demo catalogue before the subscription app starts, so both processes
+# never try to seed the same database at the same time.
 echo "Starting auth portal at http://localhost:$AUTH_PORT"
 PORT="$AUTH_PORT" APP_URL="http://localhost:$AUTH_PORT" node "$ROOT_DIR/brightloop-auth/src/server.js" &
 auth_pid=$!
 
-wait_for_http "Subscription app" "http://127.0.0.1:$MAIN_PORT/api/stats" "200" "$main_pid"
 wait_for_http "Auth portal" "http://127.0.0.1:$AUTH_PORT/api/auth/me" "401" "$auth_pid"
+
+echo "Starting subscription app at http://localhost:$MAIN_PORT"
+PORT="$MAIN_PORT" node "$ROOT_DIR/subscription-app/src/server.js" &
+main_pid=$!
+
+wait_for_http "Subscription app" "http://127.0.0.1:$MAIN_PORT/api/stats" "200" "$main_pid"
 
 echo "Both apps are running. Press Ctrl+C to stop them."
 wait -n "$main_pid" "$auth_pid"

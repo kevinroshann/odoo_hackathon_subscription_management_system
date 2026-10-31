@@ -2,7 +2,12 @@ const { DatabaseSync } = require('node:sqlite');
 const path = require('node:path');
 const fs = require('node:fs');
 
-const DB_PATH = process.env.DB_PATH || path.join(__dirname, '..', '..', 'data', 'brightloop.sqlite');
+// Shared database with the auth/billing app. Both processes point at the same
+// SQLite file by default; DB_FILE/DB_PATH can override it in either app.
+const DB_PATH =
+  process.env.DB_FILE ||
+  process.env.DB_PATH ||
+  path.join(__dirname, '..', '..', '..', 'data', 'brightloop.sqlite');
 
 function getDatabase(dbPath = DB_PATH) {
   const dir = path.dirname(dbPath);
@@ -15,6 +20,7 @@ function getDatabase(dbPath = DB_PATH) {
   // Enable foreign keys and WAL mode for high concurrency & integrity
   db.exec('PRAGMA foreign_keys = ON;');
   db.exec('PRAGMA journal_mode = WAL;');
+  db.exec('PRAGMA busy_timeout = 5000;');
 
   initSchema(db);
   return db;

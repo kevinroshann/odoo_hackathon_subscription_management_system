@@ -2,6 +2,7 @@ const router = require('express').Router();
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const db = require('../db');
+const { transaction } = require('../database');
 const { signToken, authenticate } = require('../middleware/auth');
 const { sendResetEmail } = require('../mailer');
 
@@ -65,10 +66,10 @@ router.post('/reset-password', (req, res) => {
   const r = db.prepare('SELECT * FROM password_resets WHERE token_hash=? AND used=0 AND expires_at>?')
     .get(hash(token || ''), Date.now());
   if (!r) return res.status(400).json({ error: 'This reset link is invalid or has expired.' });
-  db.transaction(() => {
+  transaction(db, () => {
     db.prepare('UPDATE users SET password_hash=? WHERE id=?').run(bcrypt.hashSync(password, 12), r.user_id);
     db.prepare('UPDATE password_resets SET used=1 WHERE user_id=?').run(r.user_id);
-  })();
+  });
   res.json({ message: 'Password updated. You can log in now.' });
 });
 

@@ -4,26 +4,30 @@ The project is organized into two app folders:
 
 ```text
 odoo_hackathon/
-├── subscription-app/   # Products, plans, quotations, discounts, tests, database
-├── brightloop-auth/    # Login, staff roles, and customer portal
+├── subscription-app/   # Products, plans, quotations, discounts
+├── brightloop-auth/    # Unified server: auth/RBAC/portal + billing/taxes/payments
+├── data/               # Shared SQLite database (created on first run)
 ├── run.sh              # Starts both apps together
 ├── README.md           # Setup and run instructions
 └── .gitignore
 ```
 
-They use separate SQLite databases and HTTP servers. The authentication and
-portal routes have not yet been merged into the main application's schema or
-server.
+Both apps now share one SQLite database, `<repo>/data/brightloop.sqlite`, so
+Member 2 quotations flow into Member 3 billing and Member 1 customer accounts.
+The auth app (`brightloop-auth`) is the integrated application server: it
+creates the full schema, exposes the portal and billing APIs, and runs the
+recurring billing cron. The subscription app remains available as the Member 2
+product/quotation dashboard on port 3000.
 
 ## Requirements
 
-- Debian/Linux, Bash, and `curl`.
+- Debian/Linux, Bash, and `curl` for `run.sh` (Windows users can start each app
+  directly with `npm start`).
 - Node.js 22.5.0 or newer and npm.
 - `nvm` is recommended for managing Node.js versions.
 
-The main app uses Node's built-in SQLite support. The auth portal has a native
-SQLite dependency, so install its dependencies after selecting the Node
-version you will use to run it.
+Both apps use Node's built-in `node:sqlite` module. There is no native
+`better-sqlite3` build step.
 
 ## First-time setup
 
@@ -85,6 +89,10 @@ The `.env` file and local databases are intentionally not committed. Keep
 secrets private. If `node_modules` was installed with a different Node
 version, rerun `npm ci` in `brightloop-auth/`.
 
+On first start the shared database is created at `data/brightloop.sqlite`.
+Both apps resolve the same path by default; override it for both with
+`DB_FILE` or `DB_PATH` (see the configuration reference).
+
 ## Login details
 
 The auth portal creates these demo accounts when it first creates its
@@ -119,9 +127,11 @@ Open these pages in your browser:
 - Main subscription dashboard: <http://localhost:3000>
 - Login and customer portal: <http://localhost:3001>
 
-Keep the terminal open while using the apps. The script checks that the ports
-are available and waits until both apps respond. Press **Ctrl+C** in that
-terminal to stop both.
+Keep the terminal open while using the apps. The script starts the auth app
+first (which creates the shared schema and seeds the Member 2 demo catalogue),
+then starts the subscription dashboard. It checks that the ports are available
+and waits until both apps respond. Press **Ctrl+C** in that terminal to stop
+both.
 
 If ports 3000 or 3001 are already in use, use two free ports instead:
 
@@ -140,24 +150,25 @@ cd subscription-app
 npm start
 ```
 
-Open <http://localhost:3000>. It creates and seeds
-`subscription-app/data/brightloop.sqlite` on first run. Run its tests from
-`subscription-app/` with:
+Open <http://localhost:3000>. It uses the shared
+`data/brightloop.sqlite` database and seeds the demo catalogue on first run,
+unless `SKIP_SEED=true`. Run its tests from `subscription-app/` with:
 
 ```bash
 npm test
 ```
 
-Start the portal separately in another terminal:
+Start the auth portal separately in another terminal:
 
 ```bash
 cd ~/Desktop/odoo_hackathon/brightloop-auth
 npm start
 ```
 
-Open <http://localhost:3001>. The portal settings, demo logins, and database
-are independent of the main app. The two apps are not yet integrated with
-each other's subscription data.
+Open <http://localhost:3001>. With `.env` present, `PORT=3001` keeps the portal
+alongside the dashboard. The portal reads the same subscriptions, quotations,
+invoices, and payments as the main app. It also starts the daily billing cron;
+set `DISABLE_BILLING_CRON=true` when you only want the HTTP API.
 
 ## Configuration reference
 
@@ -171,6 +182,11 @@ Auth settings live in `brightloop-auth/.env`:
 | `ADMIN_EMAIL` | `admin@brightloop.com` | Initial admin email, only used during initial database setup |
 | `ADMIN_PASSWORD` | `Admin@12345` | Initial admin password, only used during initial database setup |
 | `SEED_DEMO` | `true` | Create the demo customer and sample portal data |
+| `SKIP_SEED` | `false` | Skip Member 2 demo products/quotations on an empty database |
+| `DB_FILE`, `DB_PATH` | `<repo>/data/brightloop.sqlite` | Shared SQLite database; `DB_FILE` wins if both are set |
+| `BILLING_CRON` | `0 2 * * *` | Cron expression for the automatic billing sweep |
+| `BILLING_TIMEZONE` | `UTC` | Timezone used to evaluate `BILLING_CRON` |
+| `DISABLE_BILLING_CRON` | `false` | Set to `true` to run the API without the billing scheduler |
 | `SMTP_HOST`, `SMTP_PORT` | Empty, `587` | Optional outgoing mail server settings |
 | `SMTP_USER`, `SMTP_PASS` | Empty | Optional SMTP login |
 | `MAIL_FROM` | `Brightloop <no-reply@brightloop.com>` | Sender address for email |
@@ -186,8 +202,10 @@ server terminal.
 - **“Port is unavailable” or “address already in use”:** stop the other app
   using that port, or run with `MAIN_PORT=3100 AUTH_PORT=3101`.
 - **“Missing brightloop-auth/.env”:** complete the first-time setup above.
-- **Auth startup fails loading `better-sqlite3`:** select Node 22, then run
-  `cd brightloop-auth && npm ci` again.
+- **Auth startup fails with a SQLite error:** select Node 22+ and confirm
+  `node --version`; no native SQLite package needs to be compiled.
+- **“database is locked”:** both apps must point at the same `DB_FILE` /
+  `DB_PATH`. Stop stray `node` processes holding the database and retry.
 - **“Failed to fetch”:** start the app with `./run.sh` and browse to the
   printed app URL; do not open the HTML file directly from the file manager.
 
@@ -212,3 +230,23 @@ The main application exposes these API groups:
 | `GET`, `POST` | `/api/discounts` | Discount rules |
 | `POST` | `/api/discounts/evaluate` | Evaluate a discount |
 | `POST` | `/api/seed` | Reload demo scenarios |
+
+Member 1 and Member 3 endpoints are exposed by `brightloop-auth` on port 3001:
+
+| Method | Endpoint | Access | Description |
+|---|---|---|---|
+| `GET` | `/api/portal/summary`, `/subscriptions`, `/invoices` | Customer | Own data only |
+| `POST` | `/api/portal/subscriptions/:id/close` | Customer | Close own subscription |
+| `GET` | `/api/invoices` | Admin, staff | List invoices (`status`, `customer_id`, `subscription_id`, `from`, `to`, `q`, `overdue`, `limit`, `offset`) |
+| `GET` | `/api/invoices/:id` | Admin, staff | Invoice detail with line items and payments |
+| `PATCH` | `/api/invoices/:id/status` | Admin, staff | Advance Draft → Confirmed → Paid; `force=true` allows manual Paid |
+| `GET` | `/api/invoices/:id/payments` | Admin, staff | Payment history |
+| `POST` | `/api/invoices/:id/payments` | Admin, staff | Record `{amount, method, payment_date, note}`; auto-marks Paid when covered |
+| `GET`, `POST`, `PATCH`, `DELETE` | `/api/tax-rules` | Admin, staff | Manage active tax rules |
+| `POST` | `/api/admin/billing/run` | Admin, staff | Run the billing sweep (`{asOf}` optional) |
+| `POST` | `/api/admin/billing/sync` | Admin, staff | Sync Active Member 2 quotations into subscriptions |
+
+The billing sweep runs daily at 02:00 UTC by default. For each due Active
+subscription it applies the linked quotation/discount, adds every active tax
+rule, creates a Draft invoice with line items, and advances
+`next_billing_date`. The sweep is idempotent for each billing period.
