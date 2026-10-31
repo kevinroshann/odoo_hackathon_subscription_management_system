@@ -2,9 +2,15 @@
 *.log
 npm-debug.log*
 
-# SQLite WAL and SHM temporary files
-data/*.sqlite-shm
-data/*.sqlite-wal
+# Installed dependencies
+node_modules/
+
+# Local configuration and secrets
+.env
+
+# Local SQLite databases and journal files
+*.sqlite*
+*.db*
 
 # OS files
 .DS_Store
