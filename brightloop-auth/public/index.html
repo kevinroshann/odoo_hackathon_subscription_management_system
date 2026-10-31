@@ -60,10 +60,19 @@ function enter(u){window.user=u;dashboard()}
 async function dashboard(){
 const u=window.user,head=`<header><b>Brightloop</b><span>${esc(u.name)} <button class="ghost" id="out">Log out</button></span></header>`;
 if(u.role!=='customer'){
-app.innerHTML=head+`<div class="wrap"><h2>Signed in as ${u.role}</h2><p class="sub">Staff and admin screens come from the other modules. This account is ready for them.</p>${u.role==='admin'?'<div id="staff"></div>':''}</div>`;
-if(u.role==='admin')staffPanel()}
-else{const[s,subs,inv]=await Promise.all([api('/portal/summary'),api('/portal/subscriptions'),api('/portal/invoices')]);
-app.innerHTML=head+`<div class="wrap"><h2>Hello, ${esc(u.name.split(' ')[0])}</h2>
+app.innerHTML=head+`
+<div class="wrap">
+  <h2>Finance & Operations</h2>
+  <p class="sub">Welcome, ${esc(u.name)}. Manage subscriptions, revenue and receivables.</p>
+  <div id="finance"></div>
+  ${u.role==='admin'?'<div id="staff"></div>':''}
+</div>`;
+
+financePanel();
+
+if(u.role==='admin') staffPanel();
+}
+  app.innerHTML=head+`<div class="wrap"><h2>Hello, ${esc(u.name.split(' ')[0])}</h2>
 <div class="stats"><div class="stat"><b>${s.activeSubscriptions}</b><span>Active subscriptions</span></div>
 <div class="stat"><b>${money(s.outstanding)}</b><span>Outstanding balance</span></div>
 <div class="stat"><b>${s.unpaidInvoices}</b><span>Unpaid invoices</span></div></div>
