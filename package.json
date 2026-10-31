@@ -1,0 +1,21 @@
+{
+  "name": "brightloop-subscription-management-member2",
+  "version": "1.0.0",
+  "description": "Brightloop Subscription Management System - Member 2: Products, Plans & Sales Quotations",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "agy-node src/server.js",
+    "test": "agy-node --test tests/product.test.js tests/plan.test.js tests/discount.test.js tests/quotation.test.js tests/api.test.js",
+    "seed": "agy-node src/db/seed.js"
+  },
+  "keywords": [
+    "subscription-management",
+    "brightloop",
+    "odoo",
+    "pricing-engine",
+    "sales-quotations",
+    "discounts"
+  ],
+  "author": "Antigravity - Member 2",
+  "license": "MIT"
+}

@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Brightloop Software - Subscription Management System</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0f7ff',
+              100: '#e0effe',
+              500: '#0284c7',
+              600: '#0369a1',
+              700: '#075985',
+              800: '#0c4a6e',
+              900: '#082f49',
+            },
+            odoo: {
+              50: '#fdf4ff',
+              100: '#fae8ff',
+              600: '#9333ea',
+              700: '#7e22ce',
+              800: '#6b21a8',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col font-sans antialiased">
+
+  <!-- Top Navbar -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex justify-between h-16 items-center">
+        <!-- Logo & Title -->
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-indigo-600 flex items-center justify-center text-white font-black text-xl shadow-md">
+            BL
+          </div>
+          <div>
+            <div class="flex items-center space-x-2">
+              <span class="font-extrabold text-lg tracking-tight text-slate-900">Brightloop</span>
+              <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-brand-100 text-brand-800 border border-brand-200">Subscription Platform</span>
+            </div>
+            <p class="text-xs text-slate-500 font-medium">Member 2: Products, Plans & Sales Quotations</p>
+          </div>
+        </div>
+
+        <!-- Navigation Tabs -->
+        <nav class="hidden md:flex space-x-1 lg:space-x-2">
+          <button onclick="switchTab('dashboard')" id="nav-dashboard" class="nav-tab active">
+            <i data-lucide="layout-dashboard" class="w-4 h-4 mr-1.5 inline"></i>Dashboard
+          </button>
+          <button onclick="switchTab('products')" id="nav-products" class="nav-tab">
+            <i data-lucide="package" class="w-4 h-4 mr-1.5 inline"></i>Products & Variants
+          </button>
+          <button onclick="switchTab('plans')" id="nav-plans" class="nav-tab">
+            <i data-lucide="calendar-clock" class="w-4 h-4 mr-1.5 inline"></i>Plans & Rules
+          </button>
+          <button onclick="switchTab('templates')" id="nav-templates" class="nav-tab">
+            <i data-lucide="copy" class="w-4 h-4 mr-1.5 inline"></i>Quotation Templates
+          </button>
+          <button onclick="switchTab('quotations')" id="nav-quotations" class="nav-tab">
+            <i data-lucide="file-text" class="w-4 h-4 mr-1.5 inline"></i>Quotations
+          </button>
+          <button onclick="switchTab('discounts')" id="nav-discounts" class="nav-tab">
+            <i data-lucide="percent" class="w-4 h-4 mr-1.5 inline"></i>Discount Engine
+          </button>
+        </nav>
+
+        <!-- Right action: Reseed data -->
+        <div class="flex items-center space-x-2">
+          <button onclick="reseedData()" title="Reset database with Brightloop demo data" class="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-lg text-slate-600 bg-slate-100 hover:bg-slate-200 transition border border-slate-300">
+            <i data-lucide="rotate-ccw" class="w-3.5 h-3.5 mr-1 text-slate-500"></i>Reseed Data
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mobile Navigation Bar -->
+    <div class="md:hidden border-t border-slate-200 bg-slate-50 px-2 py-2 flex overflow-x-auto space-x-1">
+      <button onclick="switchTab('dashboard')" id="m-nav-dashboard" class="px-2.5 py-1 text-xs font-medium rounded-md whitespace-nowrap bg-white text-slate-800 shadow-sm">Dashboard</button>
+      <button onclick="switchTab('products')" id="m-nav-products" class="px-2.5 py-1 text-xs font-medium rounded-md whitespace-nowrap text-slate-600">Products</button>
+      <button onclick="switchTab('plans')" id="m-nav-plans" class="px-2.5 py-1 text-xs font-medium rounded-md whitespace-nowrap text-slate-600">Plans</button>
+      <button onclick="switchTab('templates')" id="m-nav-templates" class="px-2.5 py-1 text-xs font-medium rounded-md whitespace-nowrap text-slate-600">Templates</button>
+      <button onclick="switchTab('quotations')" id="m-nav-quotations" class="px-2.5 py-1 text-xs font-medium rounded-md whitespace-nowrap text-slate-600">Quotations</button>
+      <button onclick="switchTab('discounts')" id="m-nav-discounts" class="px-2.5 py-1 text-xs font-medium rounded-md whitespace-nowrap text-slate-600">Discounts</button>
+    </div>
+  </header>
+
+  <!-- Main Content Container -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+    <!-- Toast Notifications -->
+    <div id="toast" class="fixed bottom-5 right-5 z-50 transform transition-all duration-300 opacity-0 translate-y-3 pointer-events-none bg-slate-900 text-white text-sm px-4 py-3 rounded-xl shadow-xl flex items-center space-x-2">
+      <span id="toast-message">Notification message</span>
+    </div>
+
+    <!-- ==================== TAB 1: DASHBOARD ==================== -->
+    <section id="tab-dashboard" class="tab-content block space-y-8">
+      <!-- Welcome Banner -->
+      <div class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-2xl p-6 sm:p-8 text-white shadow-lg relative overflow-hidden">
+        <div class="relative z-10 max-w-2xl">
+          <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-brand-500/30 text-brand-200 border border-brand-400/30 mb-3">
+            Brightloop Subscription Backbone
+          </span>
+          <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">Products, Plans & Sales Quotations</h1>
+          <p class="mt-2 text-sm sm:text-base text-slate-300">
+            Unified catalog management, multi-frequency recurring subscription billing, variant surcharge rules (e.g. Odoo +560), admin discounts, and quotation lifecycle.
+          </p>
+          <div class="mt-6 flex flex-wrap gap-3">
+            <button onclick="openCreateProductModal()" class="btn-primary">
+              <i data-lucide="plus-circle" class="w-4 h-4 mr-1.5 inline"></i>Add Product
+            </button>
+            <button onclick="openCreatePlanModal()" class="btn-secondary">
+              <i data-lucide="calendar" class="w-4 h-4 mr-1.5 inline"></i>Create Plan
+            </button>
+            <button onclick="openCreateTemplateModal()" class="btn-secondary">
+              <i data-lucide="copy" class="w-4 h-4 mr-1.5 inline"></i>New Quote Template
+            </button>
+          </div>
+        </div>
+        <div class="absolute -right-10 -bottom-10 opacity-10 pointer-events-none">
+          <i data-lucide="layers" class="w-80 h-80 text-white"></i>
+        </div>
+      </div>
+
+      <!-- Quick Metrics Cards -->
+      <div class="grid grid-cols-2 lg:grid-cols-6 gap-4">
+        <div class="metric-card">
+          <div class="flex items-center justify-between text-slate-500 mb-2">
+            <span class="text-xs font-semibold uppercase tracking-wider">Products</span>
+            <i data-lucide="package" class="w-4 h-4 text-brand-600"></i>
+          </div>
+          <div id="stat-products" class="text-2xl font-bold text-slate-900">-</div>
+          <span class="text-xs text-slate-500">Master catalog</span>
+        </div>
+
+        <div class="metric-card">
+          <div class="flex items-center justify-between text-slate-500 mb-2">
+            <span class="text-xs font-semibold uppercase tracking-wider">Plans</span>
+            <i data-lucide="calendar-clock" class="w-4 h-4 text-indigo-600"></i>
+          </div>
+          <div id="stat-plans" class="text-2xl font-bold text-slate-900">-</div>
+          <span class="text-xs text-slate-500">Daily to Yearly</span>
+        </div>
+
+        <div class="metric-card">
+          <div class="flex items-center justify-between text-slate-500 mb-2">
+            <span class="text-xs font-semibold uppercase tracking-wider">Templates</span>
+            <i data-lucide="copy" class="w-4 h-4 text-emerald-600"></i>
+          </div>
+          <div id="stat-templates" class="text-2xl font-bold text-slate-900">-</div>
+          <span class="text-xs text-slate-500">Validity enabled</span>
+        </div>
+
+        <div class="metric-card">
+          <div class="flex items-center justify-between text-slate-500 mb-2">
+            <span class="text-xs font-semibold uppercase tracking-wider">Discounts</span>
+            <i data-lucide="percent" class="w-4 h-4 text-amber-600"></i>
+          </div>
+          <div id="stat-discounts" class="text-2xl font-bold text-slate-900">-</div>
+          <span class="text-xs text-slate-500">Active rules</span>
+        </div>
+
+        <div class="metric-card">
+          <div class="flex items-center justify-between text-slate-500 mb-2">
+            <span class="text-xs font-semibold uppercase tracking-wider">Quotations</span>
+            <i data-lucide="file-text" class="w-4 h-4 text-purple-600"></i>
+          </div>
+          <div id="stat-quotations" class="text-2xl font-bold text-slate-900">-</div>
+          <span class="text-xs text-slate-500">Draft & Sent</span>
+        </div>
+
+        <div class="metric-card">
+          <div class="flex items-center justify-between text-slate-500 mb-2">
+            <span class="text-xs font-semibold uppercase tracking-wider">Active Subs</span>
+            <i data-lucide="check-circle-2" class="w-4 h-4 text-teal-600"></i>
+          </div>
+          <div id="stat-active-subs" class="text-2xl font-bold text-slate-900">-</div>
+          <span class="text-xs text-teal-600 font-medium">Running billing</span>
+        </div>
+      </div>
+
+      <!-- Recent Quotations Section -->
+      <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+          <div>
+            <h2 class="text-base font-bold text-slate-900">Recent Sales Quotations</h2>
+            <p class="text-xs text-slate-500">Status lifecycle: Draft → Quotation → Confirmed → Active → Closed</p>
+          </div>
+          <button onclick="switchTab('quotations')" class="text-xs font-semibold text-brand-600 hover:text-brand-800">
+            View All Quotations →
+          </button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm">
+            <thead class="bg-slate-50 text-slate-600 text-xs font-semibold uppercase tracking-wider border-b border-slate-200">
+              <tr>
+                <th class="px-6 py-3">Quote #</th>
+                <th class="px-6 py-3">Customer</th>
+                <th class="px-6 py-3">Plan</th>
+                <th class="px-6 py-3">Valid Until</th>
+                <th class="px-6 py-3">Total</th>
+                <th class="px-6 py-3">Status</th>
+                <th class="px-6 py-3 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="dashboard-quotes-tbody" class="divide-y divide-slate-100 text-slate-700">
+              <tr>
+                <td colspan="7" class="px-6 py-8 text-center text-slate-400">Loading quotations...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 2: PRODUCTS & VARIANTS ==================== -->
+    <section id="tab-products" class="tab-content hidden space-y-6">
+      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h2 class="text-xl font-bold text-slate-900">Product Catalog & Pricing</h2>
+          <p class="text-xs text-slate-500">Manage master products, costs, sales prices, and multi-brand variant surcharge rules (e.g. Odoo +560).</p>
+        </div>
+        <button onclick="openCreateProductModal()" class="btn-primary">
+          <i data-lucide="plus" class="w-4 h-4 mr-1.5 inline"></i>Create Product
+        </button>
+      </div>
+
+      <!-- Filter bar -->
+      <div class="flex flex-wrap items-center gap-3 bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+        <span class="text-xs font-semibold text-slate-500 uppercase px-2">Type Filter:</span>
+        <button onclick="filterProductsByType('')" class="prod-type-btn active px-3 py-1 text-xs font-medium rounded-lg">All</button>
+        <button onclick="filterProductsByType('Software')" class="prod-type-btn px-3 py-1 text-xs font-medium rounded-lg">Software</button>
+        <button onclick="filterProductsByType('Service')" class="prod-type-btn px-3 py-1 text-xs font-medium rounded-lg">Service</button>
+        <button onclick="filterProductsByType('Add-on')" class="prod-type-btn px-3 py-1 text-xs font-medium rounded-lg">Add-on</button>
+        <button onclick="filterProductsByType('Consumable')" class="prod-type-btn px-3 py-1 text-xs font-medium rounded-lg">Consumable</button>
+      </div>
+
+      <!-- Products Grid -->
+      <div id="products-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <!-- Rendered by JS -->
+      </div>
+    </section>
+
+    <!-- ==================== TAB 3: SUBSCRIPTION PLANS ==================== -->
+    <section id="tab-plans" class="tab-content hidden space-y-6">
+      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h2 class="text-xl font-bold text-slate-900">Subscription Plan Configurations</h2>
+          <p class="text-xs text-slate-500">Configure recurring billing cadences (daily, weekly, monthly, yearly), min quantities, dates, and rule toggles.</p>
+        </div>
+        <button onclick="openCreatePlanModal()" class="btn-primary">
+          <i data-lucide="plus" class="w-4 h-4 mr-1.5 inline"></i>Create Plan
+        </button>
+      </div>
+
+      <!-- Plan Behavior Rules Explainer Banner -->
+      <div class="bg-indigo-50 border border-indigo-200 rounded-xl p-4 text-xs text-indigo-900 flex items-start space-x-3">
+        <i data-lucide="shield-check" class="w-5 h-5 text-indigo-600 flex-shrink-0 mt-0.5"></i>
+        <div>
+          <span class="font-bold">Plan Behavior Rules Engine:</span>
+          Each plan governs what customers and internal staff can do with an active subscription.
+          <span class="font-semibold">Auto-Close</span> automatically terminates the subscription at term end.
+          <span class="font-semibold">Early Close</span> dictates if early termination is permitted.
+          <span class="font-semibold">Pause & Renew</span> control mid-cycle holds and extensions.
+        </div>
+      </div>
+
+      <!-- Plans Grid -->
+      <div id="plans-container" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Rendered by JS -->
+      </div>
+    </section>
+
+    <!-- ==================== TAB 4: QUOTATION TEMPLATES ==================== -->
+    <section id="tab-templates" class="tab-content hidden space-y-6">
+      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h2 class="text-xl font-bold text-slate-900">Sales Quotation Templates</h2>
+          <p class="text-xs text-slate-500">Standardized offer templates with fixed validity periods (e.g. 15 or 30 days) and preconfigured product lines.</p>
+        </div>
+        <button onclick="openCreateTemplateModal()" class="btn-primary">
+          <i data-lucide="plus" class="w-4 h-4 mr-1.5 inline"></i>Create Template
+        </button>
+      </div>
+
+      <div id="templates-container" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Rendered by JS -->
+      </div>
+    </section>
+
+    <!-- ==================== TAB 5: SALES QUOTATIONS ==================== -->
+    <section id="tab-quotations" class="tab-content hidden space-y-6">
+      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h2 class="text-xl font-bold text-slate-900">Sales Quotations & Subscriptions</h2>
+          <p class="text-xs text-slate-500">Track and transition quotes through the full lifecycle: Draft → Quotation → Confirmed → Active → Closed.</p>
+        </div>
+        <div class="flex space-x-2">
+          <button onclick="openCreateQuoteModal()" class="btn-primary">
+            <i data-lucide="plus" class="w-4 h-4 mr-1.5 inline"></i>New Quotation
+          </button>
+        </div>
+      </div>
+
+      <!-- Status Filter Tabs -->
+      <div class="flex flex-wrap items-center gap-2 bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+        <span class="text-xs font-semibold text-slate-500 uppercase px-2">Status:</span>
+        <button onclick="filterQuotesByStatus('')" class="quote-status-btn active px-3 py-1 text-xs font-medium rounded-lg">All</button>
+        <button onclick="filterQuotesByStatus('Draft')" class="quote-status-btn px-3 py-1 text-xs font-medium rounded-lg">Draft</button>
+        <button onclick="filterQuotesByStatus('Quotation')" class="quote-status-btn px-3 py-1 text-xs font-medium rounded-lg">Quotation Sent</button>
+        <button onclick="filterQuotesByStatus('Confirmed')" class="quote-status-btn px-3 py-1 text-xs font-medium rounded-lg">Confirmed</button>
+        <button onclick="filterQuotesByStatus('Active')" class="quote-status-btn px-3 py-1 text-xs font-medium rounded-lg">Active Subscription</button>
+        <button onclick="filterQuotesByStatus('Closed')" class="quote-status-btn px-3 py-1 text-xs font-medium rounded-lg">Closed</button>
+      </div>
+
+      <!-- Quotations Table -->
+      <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm">
+            <thead class="bg-slate-50 text-slate-600 text-xs font-semibold uppercase tracking-wider border-b border-slate-200">
+              <tr>
+                <th class="px-6 py-3">Quote #</th>
+                <th class="px-6 py-3">Customer</th>
+                <th class="px-6 py-3">Plan</th>
+                <th class="px-6 py-3">Validity / Expiry</th>
+                <th class="px-6 py-3">Subtotal</th>
+                <th class="px-6 py-3">Discount</th>
+                <th class="px-6 py-3">Total</th>
+                <th class="px-6 py-3">Status</th>
+                <th class="px-6 py-3 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="quotations-tbody" class="divide-y divide-slate-100 text-slate-700">
+              <!-- Rendered by JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 6: ADMIN DISCOUNT ENGINE ==================== -->
+    <section id="tab-discounts" class="tab-content hidden space-y-8">
+      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h2 class="text-xl font-bold text-slate-900">Admin Discount Engine</h2>
+          <p class="text-xs text-slate-500">Configure fixed amount or percentage rules, minimum purchase amount, minimum seats, usage caps, and dates.</p>
+        </div>
+        <button onclick="openCreateDiscountModal()" class="btn-primary">
+          <i data-lucide="plus" class="w-4 h-4 mr-1.5 inline"></i>Create Discount Rule
+        </button>
+      </div>
+
+      <!-- Interactive Discount Simulator / Test Bench -->
+      <div class="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-6 shadow-sm">
+        <div class="flex items-center space-x-2 mb-3">
+          <i data-lucide="flask-conical" class="w-5 h-5 text-amber-600"></i>
+          <h3 class="text-base font-bold text-amber-950">Interactive Discount Test Bench / Simulator</h3>
+        </div>
+        <p class="text-xs text-amber-800 mb-4">
+          Test discount validation logic in real time! Check minimum purchase amount, seat thresholds, expiration dates, usage limits, and specific product scopes.
+        </p>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label class="block text-xs font-semibold text-amber-900 mb-1">Select Discount Rule to Test</label>
+            <select id="sim-discount-select" class="w-full text-xs p-2 rounded-lg border border-amber-300 bg-white shadow-sm focus:ring-2 focus:ring-amber-500">
+              <!-- Populated by JS -->
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-amber-900 mb-1">Simulated Seats / Quantity</label>
+            <input type="number" id="sim-quantity" value="5" min="1" class="w-full text-xs p-2 rounded-lg border border-amber-300 bg-white shadow-sm">
+          </div>
+          <div class="flex items-end">
+            <button onclick="runDiscountSimulation()" class="w-full bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs py-2 px-4 rounded-lg shadow transition flex items-center justify-center space-x-1.5">
+              <i data-lucide="play" class="w-3.5 h-3.5"></i>
+              <span>Evaluate Rule</span>
+            </button>
+          </div>
+        </div>
+
+        <div id="sim-result-box" class="mt-4 hidden p-4 rounded-xl border text-xs">
+          <!-- Filled by simulation -->
+        </div>
+      </div>
+
+      <!-- Discount Rules List -->
+      <div id="discounts-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <!-- Rendered by JS -->
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ==================== MODALS ==================== -->
+
+  <!-- 1. Create/Edit Product Modal -->
+  <div id="modal-product" class="modal-overlay hidden">
+    <div class="modal-card max-w-lg">
+      <div class="modal-header">
+        <h3 id="modal-product-title" class="text-lg font-bold text-slate-900">Create New Product</h3>
+        <button onclick="closeModal('modal-product')" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      <form id="form-product" onsubmit="handleProductSubmit(event)" class="p-6 space-y-4 text-xs">
+        <input type="hidden" id="prod-id">
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Product Code *</label>
+            <input type="text" id="prod-code" required placeholder="e.g. PROD-ERP" class="form-input">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Type *</label>
+            <select id="prod-type" required class="form-input">
+              <option value="Software">Software</option>
+              <option value="Service">Service</option>
+              <option value="Add-on">Add-on</option>
+              <option value="Consumable">Consumable</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Product Name *</label>
+          <input type="text" id="prod-name" required placeholder="e.g. Brightloop Cloud Platform" class="form-input">
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Base Sales Price ($) *</label>
+            <input type="number" id="prod-sales-price" step="0.01" required placeholder="1000.00" class="form-input">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Base Cost Price ($)</label>
+            <input type="number" id="prod-cost-price" step="0.01" placeholder="300.00" class="form-input">
+          </div>
+        </div>
+
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Internal Notes & Specifications</label>
+          <textarea id="prod-notes" rows="3" placeholder="Features, specifications, target tier..." class="form-input"></textarea>
+        </div>
+
+        <div class="flex items-center space-x-2">
+          <input type="checkbox" id="prod-active" checked class="rounded border-slate-300 text-brand-600 focus:ring-brand-500">
+          <label for="prod-active" class="font-semibold text-slate-700">Active and available for subscriptions</label>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" onclick="closeModal('modal-product')" class="btn-light">Cancel</button>
+          <button type="submit" class="btn-primary">Save Product</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 2. Product Variants & Attributes Manager Modal -->
+  <div id="modal-variants" class="modal-overlay hidden">
+    <div class="modal-card max-w-3xl">
+      <div class="modal-header">
+        <div>
+          <h3 class="text-lg font-bold text-slate-900">Variant & Attribute Engine</h3>
+          <p id="modal-variants-subtitle" class="text-xs text-slate-500">Product: -</p>
+        </div>
+        <button onclick="closeModal('modal-variants')" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+
+      <div class="p-6 space-y-6 text-xs max-h-[75vh] overflow-y-auto">
+        <!-- Brand Surcharge Highlight Banner -->
+        <div class="p-3 bg-purple-50 border border-purple-200 rounded-xl flex items-center justify-between">
+          <div class="flex items-center space-x-2">
+            <span class="px-2 py-0.5 rounded bg-purple-600 text-white font-bold text-[10px]">Odoo Variant Rule</span>
+            <span class="text-purple-900 font-medium">Adding brand configurations like <span class="font-bold">Odoo adds +$560</span> to base price.</span>
+          </div>
+          <button onclick="quickAddOdooBrand()" class="px-2.5 py-1 text-xs font-semibold bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition shadow-sm">
+            + Quick Add Odoo Brand (+560)
+          </button>
+        </div>
+
+        <!-- Section A: Existing Attributes & Values -->
+        <div>
+          <div class="flex justify-between items-center mb-3">
+            <h4 class="font-bold text-slate-800 text-sm">Attributes & Surcharges</h4>
+            <button onclick="toggleAttributeForm()" class="btn-xs-primary">+ Add New Attribute</button>
+          </div>
+
+          <!-- Add Attribute Form -->
+          <div id="form-new-attr" class="hidden mb-4 p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+            <label class="block font-semibold text-slate-700">Attribute Name (e.g. Brand, Edition, Cloud Hosting)</label>
+            <div class="flex space-x-2">
+              <input type="text" id="new-attr-name" placeholder="e.g. Brand" class="form-input">
+              <button onclick="submitNewAttribute()" class="btn-primary whitespace-nowrap">Save Attribute</button>
+            </div>
+          </div>
+
+          <!-- Attributes List -->
+          <div id="product-attributes-list" class="space-y-3">
+            <!-- Rendered by JS -->
+          </div>
+        </div>
+
+        <hr class="border-slate-200">
+
+        <!-- Section B: Concrete Variants -->
+        <div>
+          <div class="flex justify-between items-center mb-3">
+            <div>
+              <h4 class="font-bold text-slate-800 text-sm">Configured Variants</h4>
+              <p class="text-slate-500 text-[11px]">Computed final sales price includes all attribute price extras.</p>
+            </div>
+            <button onclick="generateVariantMatrix()" class="btn-xs-secondary">
+              <i data-lucide="cpu" class="w-3.5 h-3.5 mr-1 inline"></i>Generate All Combinations
+            </button>
+          </div>
+
+          <div class="overflow-x-auto border border-slate-200 rounded-xl">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-slate-50 text-slate-600 font-semibold uppercase">
+                <tr>
+                  <th class="px-4 py-2">SKU</th>
+                  <th class="px-4 py-2">Variant Name</th>
+                  <th class="px-4 py-2">Price Breakdown</th>
+                  <th class="px-4 py-2">Calculated Price</th>
+                </tr>
+              </thead>
+              <tbody id="product-variants-tbody" class="divide-y divide-slate-100">
+                <!-- Rendered by JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. Create/Edit Subscription Plan Modal -->
+  <div id="modal-plan" class="modal-overlay hidden">
+    <div class="modal-card max-w-lg">
+      <div class="modal-header">
+        <h3 id="modal-plan-title" class="text-lg font-bold text-slate-900">Create Subscription Plan</h3>
+        <button onclick="closeModal('modal-plan')" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      <form id="form-plan" onsubmit="handlePlanSubmit(event)" class="p-6 space-y-4 text-xs">
+        <input type="hidden" id="plan-id">
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Plan Code *</label>
+            <input type="text" id="plan-code" required placeholder="PLAN-MONTHLY" class="form-input">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Billing Frequency *</label>
+            <select id="plan-freq" required class="form-input">
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+              <option value="monthly" selected>Monthly</option>
+              <option value="yearly">Yearly</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Plan Name *</label>
+          <input type="text" id="plan-name" required placeholder="e.g. Pro Growth Monthly" class="form-input">
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Plan Base Fee ($)</label>
+            <input type="number" id="plan-base-fee" step="0.01" value="0.00" class="form-input">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Min Quantity (Seats) *</label>
+            <input type="number" id="plan-min-qty" min="1" value="1" required class="form-input">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Availability Start Date</label>
+            <input type="date" id="plan-start-date" class="form-input">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Availability End Date</label>
+            <input type="date" id="plan-end-date" class="form-input">
+          </div>
+        </div>
+
+        <!-- Plan Behavior Rules Toggles -->
+        <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2">
+          <span class="block font-bold text-slate-800 uppercase tracking-wider text-[11px]">Plan Behavior Rules & Controls</span>
+          
+          <div class="grid grid-cols-2 gap-3">
+            <label class="flex items-center space-x-2">
+              <input type="checkbox" id="plan-auto-close" class="rounded text-brand-600">
+              <span class="font-medium text-slate-700">Auto-Close on End</span>
+            </label>
+            <label class="flex items-center space-x-2">
+              <input type="checkbox" id="plan-closable-early" checked class="rounded text-brand-600">
+              <span class="font-medium text-slate-700">Early Close Allowed</span>
+            </label>
+            <label class="flex items-center space-x-2">
+              <input type="checkbox" id="plan-pausable" checked class="rounded text-brand-600">
+              <span class="font-medium text-slate-700">Pausable</span>
+            </label>
+            <label class="flex items-center space-x-2">
+              <input type="checkbox" id="plan-renewable" checked class="rounded text-brand-600">
+              <span class="font-medium text-slate-700">Renewable</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" onclick="closeModal('modal-plan')" class="btn-light">Cancel</button>
+          <button type="submit" class="btn-primary">Save Plan</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 4. Create/Edit Quotation Template Modal -->
+  <div id="modal-template" class="modal-overlay hidden">
+    <div class="modal-card max-w-2xl">
+      <div class="modal-header">
+        <h3 id="modal-template-title" class="text-lg font-bold text-slate-900">Create Quotation Template</h3>
+        <button onclick="closeModal('modal-template')" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      <form id="form-template" onsubmit="handleTemplateSubmit(event)" class="p-6 space-y-4 text-xs max-h-[75vh] overflow-y-auto">
+        <input type="hidden" id="tmpl-id">
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Template Name *</label>
+          <input type="text" id="tmpl-name" required placeholder="e.g. Odoo Standard Suite Offer" class="form-input">
+        </div>
+
+        <div class="grid grid-cols-3 gap-4">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Default Plan *</label>
+            <select id="tmpl-plan" required class="form-input"></select>
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Fixed Validity (Days) *</label>
+            <input type="number" id="tmpl-validity" required min="1" value="30" class="form-input">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Payment Terms</label>
+            <input type="text" id="tmpl-payment-terms" value="Net 30" class="form-input">
+          </div>
+        </div>
+
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Terms & Conditions</label>
+          <textarea id="tmpl-terms" rows="2" placeholder="SLA, cancellation policy..." class="form-input"></textarea>
+        </div>
+
+        <!-- Preconfigured Lines -->
+        <div class="border border-slate-200 rounded-xl p-3 bg-slate-50 space-y-3">
+          <div class="flex justify-between items-center">
+            <span class="font-bold text-slate-800">Preconfigured Product Lines</span>
+            <button type="button" onclick="addTemplateLineRow()" class="btn-xs-primary">+ Add Line</button>
+          </div>
+          <div id="tmpl-lines-container" class="space-y-2">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" onclick="closeModal('modal-template')" class="btn-light">Cancel</button>
+          <button type="submit" class="btn-primary">Save Template</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 5. Create Quotation Modal (From Template or Custom) -->
+  <div id="modal-quotation" class="modal-overlay hidden">
+    <div class="modal-card max-w-3xl">
+      <div class="modal-header">
+        <h3 id="modal-quote-title" class="text-lg font-bold text-slate-900">New Sales Quotation</h3>
+        <button onclick="closeModal('modal-quotation')" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      <form id="form-quotation" onsubmit="handleQuotationSubmit(event)" class="p-6 space-y-4 text-xs max-h-[75vh] overflow-y-auto">
+        <!-- Quick Template Loader -->
+        <div class="p-3 bg-brand-50 border border-brand-200 rounded-xl flex items-center justify-between">
+          <div class="flex items-center space-x-2">
+            <i data-lucide="sparkles" class="w-4 h-4 text-brand-600"></i>
+            <span class="font-medium text-brand-900">Start from a Quotation Template (Pre-fills lines & validity)</span>
+          </div>
+          <select id="quote-select-template" onchange="loadTemplateIntoQuoteForm(this.value)" class="text-xs p-1.5 rounded-lg border border-brand-300 bg-white shadow-sm">
+            <option value="">-- Choose Template --</option>
+          </select>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Customer / Company Name *</label>
+            <input type="text" id="quote-cust-name" required placeholder="e.g. Apex Global Corp" class="form-input">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Customer Email *</label>
+            <input type="email" id="quote-cust-email" required placeholder="e.g. billing@apexglobal.com" class="form-input">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-3 gap-4">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Subscription Plan *</label>
+            <select id="quote-plan" required class="form-input"></select>
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Start Date *</label>
+            <input type="date" id="quote-start-date" required class="form-input">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Validity (Days) *</label>
+            <input type="number" id="quote-validity-days" min="1" value="30" required class="form-input" onchange="updateQuoteCalculatedExpiry()">
+            <span id="quote-expiry-preview" class="text-[11px] text-brand-600 mt-1 block font-medium">Expires: -</span>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Payment Terms</label>
+            <input type="text" id="quote-payment-terms" value="Net 30" class="form-input">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Admin Discount Code (Optional)</label>
+            <div class="flex space-x-1.5">
+              <input type="text" id="quote-discount-code" placeholder="e.g. ODOO560LAUNCH" class="form-input uppercase">
+              <button type="button" onclick="validateQuoteDiscountCode()" class="btn-xs-secondary whitespace-nowrap">Verify</button>
+            </div>
+            <span id="quote-discount-feedback" class="text-[11px] mt-1 block"></span>
+          </div>
+        </div>
+
+        <!-- Lines Builder -->
+        <div class="border border-slate-200 rounded-xl p-3 bg-slate-50 space-y-3">
+          <div class="flex justify-between items-center">
+            <span class="font-bold text-slate-800">Quotation Line Items</span>
+            <button type="button" onclick="addQuoteLineRow()" class="btn-xs-primary">+ Add Product Line</button>
+          </div>
+          <div id="quote-lines-container" class="space-y-2">
+            <!-- Lines -->
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" onclick="closeModal('modal-quotation')" class="btn-light">Cancel</button>
+          <button type="submit" class="btn-primary">Create Quotation</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 6. View Quotation & Print Preview Modal -->
+  <div id="modal-view-quote" class="modal-overlay hidden">
+    <div class="modal-card max-w-4xl">
+      <div class="modal-header border-b border-slate-200 flex justify-between items-center pb-3">
+        <div class="flex items-center space-x-2">
+          <span class="font-bold text-lg text-slate-900" id="vq-quote-number">QT-2026-0001</span>
+          <span id="vq-status-badge" class="status-badge">Draft</span>
+        </div>
+        <div class="flex items-center space-x-2">
+          <button onclick="window.print()" class="btn-light text-xs"><i data-lucide="printer" class="w-3.5 h-3.5 mr-1 inline"></i>Print</button>
+          <button onclick="closeModal('modal-view-quote')" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+        </div>
+      </div>
+
+      <div class="p-6 space-y-6 text-xs max-h-[75vh] overflow-y-auto print-area">
+        <!-- Status Stepper Bar -->
+        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 flex items-center justify-between">
+          <div class="space-y-1">
+            <span class="font-bold text-slate-800 text-sm">Quotation & Subscription Lifecycle:</span>
+            <p class="text-slate-500">Advance the quotation according to the Brightloop billing flow.</p>
+          </div>
+          <div class="flex items-center space-x-2" id="vq-status-actions">
+            <!-- Buttons injected based on current status -->
+          </div>
+        </div>
+
+        <!-- Invoice/Quotation Document View -->
+        <div class="border border-slate-200 rounded-xl p-6 bg-white space-y-6">
+          <!-- Header -->
+          <div class="flex justify-between items-start border-b border-slate-100 pb-4">
+            <div>
+              <h2 class="text-xl font-black text-slate-900 tracking-tight">BRIGHTLOOP SOFTWARE</h2>
+              <p class="text-slate-500">Subscription & Recurring Billing Services</p>
+              <p class="text-slate-400">support@brightloopsoftware.com</p>
+            </div>
+            <div class="text-right">
+              <span class="text-xs uppercase font-semibold tracking-wider text-slate-400">Offer Validity Window</span>
+              <div class="text-slate-800 font-bold" id="vq-dates">Created: - | Expires: -</div>
+              <div class="text-slate-500" id="vq-terms">Payment Terms: -</div>
+            </div>
+          </div>
+
+          <!-- Customer & Plan Info -->
+          <div class="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-lg">
+            <div>
+              <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Quotation For:</span>
+              <div id="vq-customer" class="font-bold text-slate-900 text-sm">-</div>
+              <div id="vq-email" class="text-slate-600">-</div>
+            </div>
+            <div>
+              <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Subscription Plan:</span>
+              <div id="vq-plan-name" class="font-bold text-slate-900 text-sm">-</div>
+              <div id="vq-plan-cadence" class="text-slate-600">-</div>
+            </div>
+          </div>
+
+          <!-- Line Items Table -->
+          <div class="overflow-x-auto">
+            <table class="w-full text-left">
+              <thead class="border-b border-slate-200 text-slate-500 text-[11px] uppercase">
+                <tr>
+                  <th class="py-2">Description</th>
+                  <th class="py-2 text-center">Qty</th>
+                  <th class="py-2 text-right">Unit Price</th>
+                  <th class="py-2 text-right">Disc %</th>
+                  <th class="py-2 text-right">Total</th>
+                </tr>
+              </thead>
+              <tbody id="vq-lines-tbody" class="divide-y divide-slate-100 text-slate-700">
+                <!-- Lines -->
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Financial Totals Breakdown -->
+          <div class="border-t border-slate-200 pt-4 flex justify-end">
+            <div class="w-64 space-y-1.5 text-right">
+              <div class="flex justify-between text-slate-600">
+                <span>Subtotal:</span>
+                <span id="vq-subtotal" class="font-semibold">$0.00</span>
+              </div>
+              <div class="flex justify-between text-emerald-600" id="vq-discount-row">
+                <span id="vq-discount-label">Discount:</span>
+                <span id="vq-discount-amount">-$0.00</span>
+              </div>
+              <div class="flex justify-between text-slate-600">
+                <span id="vq-tax-label">Tax (10%):</span>
+                <span id="vq-tax-amount">$0.00</span>
+              </div>
+              <div class="flex justify-between text-slate-900 font-extrabold text-sm border-t border-slate-200 pt-2">
+                <span>Recurring Total:</span>
+                <span id="vq-total-amount" class="text-brand-600">$0.00</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 7. Create/Edit Discount Modal -->
+  <div id="modal-discount" class="modal-overlay hidden">
+    <div class="modal-card max-w-lg">
+      <div class="modal-header">
+        <h3 id="modal-discount-title" class="text-lg font-bold text-slate-900">Create Admin Discount Rule</h3>
+        <button onclick="closeModal('modal-discount')" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      <form id="form-discount" onsubmit="handleDiscountSubmit(event)" class="p-6 space-y-4 text-xs">
+        <input type="hidden" id="disc-id">
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Discount Code *</label>
+            <input type="text" id="disc-code" required placeholder="e.g. SUMMER20" class="form-input uppercase">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Discount Type *</label>
+            <select id="disc-type" required class="form-input">
+              <option value="percentage">Percentage (%)</option>
+              <option value="fixed">Fixed Amount ($)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Rule Name *</label>
+            <input type="text" id="disc-name" required placeholder="e.g. Enterprise Kickstart" class="form-input">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Value (% or $) *</label>
+            <input type="number" id="disc-value" required step="0.01" min="0.01" placeholder="15" class="form-input">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Scope</label>
+            <select id="disc-scope" class="form-input" onchange="toggleDiscountProductsSelector(this.value)">
+              <option value="whole_subscription">Whole Subscription</option>
+              <option value="specific_products">Specific Products Only</option>
+            </select>
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Usage Cap (Max Uses)</label>
+            <input type="number" id="disc-usage-limit" min="1" placeholder="Empty for unlimited" class="form-input">
+          </div>
+        </div>
+
+        <div id="disc-products-selector-box" class="hidden border border-slate-200 rounded-xl p-3 bg-slate-50 space-y-2">
+          <label class="block font-semibold text-slate-700">Eligible Products (Select Applicable)</label>
+          <div id="disc-products-checkboxes" class="space-y-1.5 max-h-32 overflow-y-auto">
+            <!-- Injected by JS -->
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Min Purchase Amount ($)</label>
+            <input type="number" id="disc-min-purchase" step="0.01" min="0" value="0.00" class="form-input">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Min Quantity (Seats)</label>
+            <input type="number" id="disc-min-qty" min="1" value="1" class="form-input">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Valid From Date</label>
+            <input type="date" id="disc-start-date" class="form-input">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Valid To Date</label>
+            <input type="date" id="disc-end-date" class="form-input">
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" onclick="closeModal('modal-discount')" class="btn-light">Cancel</button>
+          <button type="submit" class="btn-primary">Save Discount</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
