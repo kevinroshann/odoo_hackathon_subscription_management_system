@@ -49,6 +49,13 @@ app.use('/api/admin', require('./routes/admin'));
 // Member 3: invoices, payments and tax rules (admin + staff only).
 app.use('/api/invoices', require('./routes/invoices'));
 app.use('/api/tax-rules', require('./routes/taxRules'));
+// Member 4: Finance Analytics & Receivables
+app.use(
+    '/api/finance',
+    authenticate,
+    requireRole('admin', 'staff'),
+    require('../../member-4-finance/backend/financeRoutes')(db)
+);
 
 // Static assets for the auth/portal front-end.
 app.use(express.static(path.join(__dirname, '../public')));
