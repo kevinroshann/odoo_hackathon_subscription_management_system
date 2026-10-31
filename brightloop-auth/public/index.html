@@ -1,0 +1,94 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Brightloop</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#14213d;--paper:#f6f7fb;--card:#fff;--line:#dfe3ee;--loop:#2a5bd7;--mint:#12a37f;--red:#c23b3b;--mute:#5d6682}
+*{box-sizing:border-box}body{margin:0;font:16px/1.5 Figtree,system-ui,sans-serif;color:var(--ink);background:var(--paper)}
+h1,h2,h3{font-family:'Bricolage Grotesque',sans-serif;margin:0}
+.wrap{max-width:980px;margin:0 auto;padding:24px 20px}
+.auth{max-width:400px;margin:8vh auto;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:28px}
+.auth h1{font-size:28px;margin-bottom:4px}.sub{color:var(--mute);margin:0 0 18px}
+label{display:block;font-weight:600;font-size:14px;margin:12px 0 4px}
+input{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font:inherit}
+input:focus,button:focus-visible{outline:2px solid var(--loop);outline-offset:1px}
+button{font:inherit;font-weight:600;border:0;border-radius:8px;padding:10px 16px;background:var(--loop);color:#fff;cursor:pointer}
+button.ghost{background:transparent;color:var(--loop);padding:6px 8px}
+.full{width:100%;margin-top:18px}.msg{margin-top:12px;font-size:14px}.err{color:var(--red)}.ok{color:var(--mint)}
+.links{display:flex;justify-content:space-between;margin-top:14px;font-size:14px}
+header{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);padding:14px 20px;background:var(--card)}
+header b{font:700 20px 'Bricolage Grotesque'}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin:20px 0}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px}
+.stat b{display:block;font:700 30px 'Bricolage Grotesque'}.stat span{color:var(--mute);font-size:14px}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-top:8px}
+.tabs button{background:none;color:var(--mute);border-radius:0;border-bottom:3px solid transparent}
+.tabs button.on{color:var(--ink);border-color:var(--loop)}
+.tbl{overflow-x:auto;background:var(--card);border:1px solid var(--line);border-radius:12px;margin-top:16px}
+table{width:100%;border-collapse:collapse;font-size:15px}th,td{text-align:left;padding:12px 14px;border-bottom:1px solid var(--line);white-space:nowrap}
+th{color:var(--mute);font-weight:500;font-size:13px}tr:last-child td{border:0}
+.pill{padding:2px 10px;border-radius:99px;font-size:13px;font-weight:600;background:#e8ecf7}
+.Active,.Paid{background:#d9f3ea;color:#0b6b52}.Confirmed,.Quotation{background:#fdf0d4;color:#8a5a05}.Closed{background:#eceef3;color:var(--mute)}
+.empty{padding:28px;color:var(--mute);text-align:center}.hide{display:none}
+</style></head><body><div id="app"></div>
+<script>
+const $=s=>document.querySelector(s),app=$('#app');
+const api=async(p,o={})=>{const r=await fetch('/api'+p,{method:o.method||(o.body?'POST':'GET'),headers:{'Content-Type':'application/json'},body:o.body&&JSON.stringify(o.body)});
+const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||'Something went wrong.');return d};
+const money=n=>new Intl.NumberFormat('en-IN',{style:'currency',currency:'INR'}).format(n);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const say=(t,ok)=>{const m=$('#msg');m.className='msg '+(ok?'ok':'err');m.textContent=t};
+const form=f=>Object.fromEntries(new FormData(f));
+const pwHint='Use more than 8 characters, with upper and lower case letters and a special character.';
+
+function authView(title,sub,fields,btn,links){
+app.innerHTML=`<form class="auth"><h1>${title}</h1><p class="sub">${sub}</p>
+${fields.map(f=>`<label>${f[1]}<input name="${f[0]}" type="${f[2]||'text'}" required autocomplete="${f[3]||'off'}"></label>`).join('')}
+<button class="full">${btn}</button><div id="msg" class="msg" role="alert"></div><div class="links">${links}</div></form>`;return $('form')}
+const submit=(f,fn)=>f.onsubmit=async e=>{e.preventDefault();try{await fn(form(f))}catch(x){say(x.message)}};
+
+function login(){const f=authView('Log in to Brightloop','Manage your subscriptions and invoices.',[['email','Email','email','username'],['password','Password','password','current-password']],'Log in','<a href="#signup">Create account</a><a href="#forgot">Forgot password?</a>');
+submit(f,async d=>enter((await api('/auth/login',{body:d})).user))}
+function signup(){const f=authView('Create your account',pwHint,[['name','Name','text','name'],['email','Email','email','username'],['password','Password','password','new-password']],'Create account','<a href="#login">I already have an account</a>');
+submit(f,async d=>enter((await api('/auth/signup',{body:d})).user))}
+function forgot(){const f=authView('Reset your password','We will email you a reset link.',[['email','Email','email','username']],'Send reset link','<a href="#login">Back to log in</a>');
+submit(f,async d=>say((await api('/auth/forgot-password',{body:d})).message,1))}
+function reset(token){const f=authView('Choose a new password',pwHint,[['password','New password','password','new-password']],'Update password','<a href="#login">Back to log in</a>');
+submit(f,async d=>{say((await api('/auth/reset-password',{body:{token,password:d.password}})).message,1);setTimeout(()=>location.hash='login',1500)})}
+
+function enter(u){window.user=u;dashboard()}
+async function dashboard(){
+const u=window.user,head=`<header><b>Brightloop</b><span>${esc(u.name)} <button class="ghost" id="out">Log out</button></span></header>`;
+if(u.role!=='customer'){
+app.innerHTML=head+`<div class="wrap"><h2>Signed in as ${u.role}</h2><p class="sub">Staff and admin screens come from the other modules. This account is ready for them.</p>${u.role==='admin'?'<div id="staff"></div>':''}</div>`;
+if(u.role==='admin')staffPanel()}
+else{const[s,subs,inv]=await Promise.all([api('/portal/summary'),api('/portal/subscriptions'),api('/portal/invoices')]);
+app.innerHTML=head+`<div class="wrap"><h2>Hello, ${esc(u.name.split(' ')[0])}</h2>
+<div class="stats"><div class="stat"><b>${s.activeSubscriptions}</b><span>Active subscriptions</span></div>
+<div class="stat"><b>${money(s.outstanding)}</b><span>Outstanding balance</span></div>
+<div class="stat"><b>${s.unpaidInvoices}</b><span>Unpaid invoices</span></div></div>
+<div class="tabs"><button class="on" data-t="s">Subscriptions</button><button data-t="i">Invoices</button></div>
+<div id="s" class="tbl">${subs.subscriptions.length?`<table><tr><th>Number</th><th>Plan</th><th>Status</th><th>Billing</th><th>Expires</th><th>Amount</th><th></th></tr>
+${subs.subscriptions.map(x=>`<tr><td>${esc(x.number)}</td><td>${esc(x.plan_name)}</td><td><span class="pill ${x.status}">${x.status}</span></td><td>${esc(x.billing_period)}</td><td>${esc(x.expiry_date)}</td><td>${money(x.amount)}</td><td>${x.status!=='Closed'?`<button class="ghost" data-close="${x.id}">Close</button>`:''}</td></tr>`).join('')}</table>`:'<div class="empty">No subscriptions yet. Your sales rep will set one up for you.</div>'}</div>
+<div id="i" class="tbl hide">${inv.invoices.length?`<table><tr><th>Number</th><th>Status</th><th>Issued</th><th>Due</th><th>Total</th></tr>
+${inv.invoices.map(x=>`<tr><td>${esc(x.number)}</td><td><span class="pill ${x.status}">${x.status}</span></td><td>${esc(x.issue_date)}</td><td>${esc(x.due_date)}</td><td>${money(x.total)}</td></tr>`).join('')}</table>`:'<div class="empty">No invoices yet.</div>'}</div></div>`;
+document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tabs button').forEach(x=>x.classList.toggle('on',x===b));$('#s').classList.toggle('hide',b.dataset.t!=='s');$('#i').classList.toggle('hide',b.dataset.t!=='i')});
+document.querySelectorAll('[data-close]').forEach(b=>b.onclick=async()=>{if(confirm('Close this subscription? This cannot be undone.')){await api(`/portal/subscriptions/${b.dataset.close}/close`,{method:'POST'});dashboard()}})}
+$('#out').onclick=async()=>{await api('/auth/logout',{method:'POST'});location.hash='login';route()}}
+
+async function staffPanel(){
+const{staff}=await api('/admin/staff');
+$('#staff').innerHTML=`<h3 style="margin:20px 0 8px">Staff accounts</h3><form id="sf" class="auth" style="margin:0 0 16px;max-width:none">
+<label>Name<input name="name" required></label><label>Email<input name="email" type="email" required></label><label>Temporary password<input name="password" type="password" required></label>
+<button class="full">Add staff member</button><div id="msg" class="msg"></div></form>
+<div class="tbl">${staff.length?`<table><tr><th>Name</th><th>Email</th><th></th></tr>${staff.map(s=>`<tr><td>${esc(s.name)}</td><td>${esc(s.email)}</td><td><button class="ghost" data-del="${s.id}">Remove</button></td></tr>`).join('')}</table>`:'<div class="empty">No staff yet. Add the first team member above.</div>'}</div>`;
+submit($('#sf'),async d=>{await api('/admin/staff',{body:d});staffPanel()});
+document.querySelectorAll('[data-del]').forEach(b=>b.onclick=async()=>{await api('/admin/staff/'+b.dataset.del,{method:'DELETE'});staffPanel()})}
+
+async function route(){
+const h=location.hash.slice(1);
+if(h.startsWith('reset='))return reset(h.slice(6));
+try{const{user}=await api('/auth/me');window.user=user;return dashboard()}catch{}
+({signup,forgot}[h]||login)()}
+addEventListener('hashchange',route);route();
+</script></body></html>
