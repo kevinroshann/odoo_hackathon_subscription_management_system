@@ -85,7 +85,175 @@ document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{document.que
 document.querySelectorAll('[data-close]').forEach(b=>b.onclick=async()=>{if(confirm('Close this subscription? This cannot be undone.')){await api(`/portal/subscriptions/${b.dataset.close}/close`,{method:'POST'});dashboard()}})}
 $('#out').onclick=async()=>{await api('/auth/logout',{method:'POST'});location.hash='login';route()}}
 
-async function staffPanel(){
+async function financePanel() {
+  const container = $('#finance');
+
+  try {
+    const summary = await api('/finance/summary');
+
+    container.innerHTML = `
+      <div class="stats">
+        <div class="stat">
+          <b>${summary.activeSubscriptions}</b>
+          <span>Active Subscriptions</span>
+        </div>
+
+        <div class="stat">
+          <b>${money(summary.grossRevenue)}</b>
+          <span>Gross Revenue</span>
+        </div>
+
+        <div class="stat">
+          <b>${money(summary.revenueCollected)}</b>
+          <span>Revenue Collected</span>
+        </div>
+
+        <div class="stat">
+          <b>${money(summary.outstandingBalance)}</b>
+          <span>Outstanding Balance</span>
+        </div>
+
+        <div class="stat">
+          <b>${summary.overdueInvoices}</b>
+          <span>Overdue Invoices</span>
+        </div>
+      </div>
+
+      <h2 style="margin-top:28px">Accounts Receivable</h2>
+
+      <div class="tabs">
+        <button class="on" data-filter="all">All</button>
+        <button data-filter="overdue">Overdue</button>
+        <button data-filter="unpaid">Unpaid</button>
+        <button data-filter="partially_paid">Partially Paid</button>
+      </div>
+
+      <div style="display:flex;gap:10px;margin-top:16px">
+        <input id="finance-search"
+          placeholder="Search invoice or customer">
+        <button id="finance-search-btn">Search</button>
+      </div>
+
+      <div id="receivables-table" class="tbl">
+        <div class="empty">Loading invoices...</div>
+      </div>
+    `;
+
+    let currentFilter = 'all';
+    let currentSearch = '';
+    let currentOffset = 0;
+    const limit = 20;
+
+    async function loadReceivables() {
+      const params = new URLSearchParams({
+        filter: currentFilter,
+        q: currentSearch,
+        limit,
+        offset: currentOffset
+      });
+
+      const data = await api(
+        '/finance/receivables?' + params.toString()
+      );
+
+      const rows = data.receivables || [];
+
+      const table = rows.length
+        ? `<table>
+            <thead>
+              <tr>
+                <th>Invoice</th>
+                <th>Customer</th>
+                <th>Due Date</th>
+                <th>Total</th>
+                <th>Paid</th>
+                <th>Balance</th>
+                <th>Days Overdue</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows.map(invoice => `
+                <tr>
+                  <td>${esc(invoice.number)}</td>
+                  <td>${esc(invoice.customer_name)}</td>
+                  <td>${esc(invoice.due_date)}</td>
+                  <td>${money(invoice.total_amount)}</td>
+                  <td>${money(invoice.paid_amount)}</td>
+                  <td>${money(invoice.balance)}</td>
+                  <td>${Number(invoice.days_overdue) > 0
+                    ? Number(invoice.days_overdue)
+                    : '—'}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>`
+        : '<div class="empty">No invoices found.</div>';
+
+      $('#receivables-table').innerHTML = `
+        ${table}
+        <div style="display:flex;justify-content:space-between;padding:14px">
+          <button id="finance-prev" ${currentOffset === 0 ? 'disabled' : ''}>
+            Previous
+          </button>
+
+          <span>${data.total} invoices</span>
+
+          <button id="finance-next"
+            ${currentOffset + rows.length >= data.total ? 'disabled' : ''}>
+            Next
+          </button>
+        </div>
+      `;
+
+      $('#finance-prev').onclick = () => {
+        currentOffset = Math.max(0, currentOffset - limit);
+        loadReceivables();
+      };
+
+      $('#finance-next').onclick = () => {
+        currentOffset += limit;
+        loadReceivables();
+      };
+    }
+
+    container.querySelectorAll('[data-filter]').forEach(button => {
+      button.onclick = () => {
+        currentFilter = button.dataset.filter;
+        currentOffset = 0;
+
+        container.querySelectorAll('[data-filter]')
+          .forEach(b => b.classList.toggle('on', b === button));
+
+        loadReceivables().catch(showFinanceError);
+      };
+    });
+
+    $('#finance-search-btn').onclick = () => {
+      currentSearch = $('#finance-search').value.trim();
+      currentOffset = 0;
+      loadReceivables().catch(showFinanceError);
+    };
+
+    $('#finance-search').addEventListener('keydown', event => {
+      if (event.key === 'Enter') {
+        $('#finance-search-btn').click();
+      }
+    });
+
+    await loadReceivables();
+
+  } catch (error) {
+    showFinanceError(error);
+  }
+
+  function showFinanceError(error) {
+    container.insertAdjacentHTML(
+      'beforeend',
+      `<p class="msg err">${esc(error.message)}</p>`
+    );
+  }
+}
+  async function staffPanel(){
 const{staff}=await api('/admin/staff');
 $('#staff').innerHTML=`<h3 style="margin:20px 0 8px">Staff accounts</h3><form id="sf" class="auth" style="margin:0 0 16px;max-width:none">
 <label>Name<input name="name" required></label><label>Email<input name="email" type="email" required></label><label>Temporary password<input name="password" type="password" required></label>
